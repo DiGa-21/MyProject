@@ -1,0 +1,30 @@
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Gradle
+.gradle/
+.gradle-user/
+.kotlin/
+build/
+**/build/
+
+# Local machine configuration and secrets
+local.properties
+*.jks
+*.keystore
+keystore.properties
+google-services.json
+**/google-services.json
+.env
+.env.*
+!.env.example
+
+# Native / generated output
+.cxx/
+captures/
+externalNativeBuild/
+
+# Operating systems
+.DS_Store
+Thumbs.db

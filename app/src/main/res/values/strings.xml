@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Мои домашние дела</string>
+    <string name="scaffold_ready">Каркас приложения готов</string>
+    <string name="child_mode">Режим ребёнка</string>
+    <string name="child_mode_description">Дела, звёзды, помощник и награды</string>
+    <string name="parent_mode">Режим родителя</string>
+    <string name="parent_mode_description">Настройка дел и подтверждение результатов</string>
+</resources>
+
