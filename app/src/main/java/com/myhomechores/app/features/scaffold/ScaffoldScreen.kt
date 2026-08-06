@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.Image
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -40,17 +42,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.myhomechores.app.BuildConfig
+import com.myhomechores.app.R
 import com.myhomechores.app.core.AppConfig
 import com.myhomechores.app.domain.model.AppRole
 import com.myhomechores.app.ui.theme.MyHomeChoresTheme
 
 private enum class ChildTab { ROOM, CHORES, SHOP, PROFILE }
+
+private enum class Hero(val id: String, val displayName: String, val description: String, val imageRes: Int) {
+    BOY("boy", "Бирюзовый дракончик", "Любит исследовать и пробовать новое", R.drawable.dragon_boy),
+    GIRL("girl", "Лавандовый дракончик", "Поддерживает и замечает твои успехи", R.drawable.dragon_girl),
+}
 
 private data class Chore(
     val id: String,
@@ -148,6 +158,13 @@ private fun ModeCard(title: String, description: String, marker: String, onClick
 
 @Composable
 private fun ChildModeScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
+    var selectedHeroId by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedHero = Hero.values().firstOrNull { it.id == selectedHeroId }
+    if (selectedHero == null) {
+        HeroSelectionScreen(modifier = modifier, onBack = onBack) { selectedHeroId = it.id }
+        return
+    }
+
     var tab by rememberSaveable { mutableStateOf(ChildTab.CHORES) }
     var completedIds by rememberSaveable { mutableStateOf(setOf<String>()) }
     var selectedOptionalIds by rememberSaveable { mutableStateOf(setOf<String>()) }
@@ -160,13 +177,14 @@ private fun ChildModeScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
         bottomBar = { ChildBottomBar(tab = tab, onTabSelected = { tab = it }) },
     ) { padding ->
         when (tab) {
-            ChildTab.ROOM -> RoomTab(padding, stars, onBack)
+            ChildTab.ROOM -> RoomTab(padding, stars, selectedHero, onBack)
             ChildTab.CHORES -> ChoresTab(
                 padding = padding,
                 stars = stars,
                 completedIds = completedIds,
                 selectedOptionalIds = selectedOptionalIds,
                 category = category,
+                hero = selectedHero,
                 onBack = onBack,
                 onCategoryChange = { category = it },
                 onOptionalSelect = { chore ->
@@ -182,14 +200,64 @@ private fun ChildModeScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
                     stars += chore.reward
                 }
             }
-            ChildTab.SHOP -> ShopTab(padding, stars) { price -> if (stars >= price) stars -= price }
-            ChildTab.PROFILE -> ProfileTab(padding, stars, completedIds.size)
+            ChildTab.SHOP -> ShopTab(padding, stars, selectedHero) { price -> if (stars >= price) stars -= price }
+            ChildTab.PROFILE -> ProfileTab(padding, stars, completedIds.size, selectedHero)
         }
     }
 }
 
 @Composable
-private fun ChildTopBar(title: String, stars: Int, onBack: (() -> Unit)? = null) {
+private fun HeroSelectionScreen(
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+    onHeroSelected: (Hero) -> Unit,
+) {
+    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            OutlinedButton(onClick = onBack, modifier = Modifier.align(Alignment.Start).height(44.dp)) { Text("Назад") }
+            Spacer(Modifier.height(24.dp))
+            Text("Выбери помощника", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(8.dp))
+            Text("Твой дракончик будет рядом, когда ты выполняешь дела.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(22.dp))
+            HeroChoiceCard(Hero.BOY, onHeroSelected)
+            Spacer(Modifier.height(14.dp))
+            HeroChoiceCard(Hero.GIRL, onHeroSelected)
+        }
+    }
+}
+
+@Composable
+private fun HeroChoiceCard(hero: Hero, onHeroSelected: (Hero) -> Unit) {
+    Card(
+        onClick = { onHeroSelected(hero) },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Image(
+                painter = painterResource(hero.imageRes),
+                contentDescription = hero.displayName,
+                modifier = Modifier.size(138.dp).clip(RoundedCornerShape(20.dp)),
+                contentScale = ContentScale.Crop,
+            )
+            Column(Modifier.weight(1f)) {
+                Text(hero.displayName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(6.dp))
+                Text(hero.description, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(12.dp))
+                Button(onClick = { onHeroSelected(hero) }, modifier = Modifier.height(48.dp)) { Text("Выбрать") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChildTopBar(title: String, stars: Int, onBack: (() -> Unit)? = null, hero: Hero? = null) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) {
             OutlinedButton(onClick = onBack, contentPadding = PaddingValues(horizontal = 14.dp), modifier = Modifier.height(44.dp)) { Text("Назад") }
@@ -198,6 +266,10 @@ private fun ChildTopBar(title: String, stars: Int, onBack: (() -> Unit)? = null)
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text("Сегодня, ${if (title == "Мои дела") "ты справишься" else "твой маленький мир"}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        }
+        if (hero != null) {
+            Image(painter = painterResource(hero.imageRes), contentDescription = hero.displayName, modifier = Modifier.size(42.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+            Spacer(Modifier.width(8.dp))
         }
         Box(Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 12.dp, vertical = 9.dp)) {
             Text("$stars звёзд", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSecondaryContainer)
@@ -212,6 +284,7 @@ private fun ChoresTab(
     completedIds: Set<String>,
     selectedOptionalIds: Set<String>,
     category: String,
+    hero: Hero,
     onBack: () -> Unit,
     onCategoryChange: (String) -> Unit,
     onOptionalSelect: (Chore) -> Unit,
@@ -225,7 +298,7 @@ private fun ChoresTab(
     val requiredDone = requiredChores.count { completedIds.contains(it.id) }
     val allRequiredDone = requiredDone == requiredChores.size
     LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { ChildTopBar("Мои дела", stars, onBack) }
+        item { ChildTopBar("Мои дела", stars, onBack, hero) }
         item {
             Column(Modifier.padding(horizontal = 20.dp)) {
                 Row(verticalAlignment = Alignment.Bottom) {
@@ -326,16 +399,16 @@ private fun OptionalChoreCard(
 }
 
 @Composable
-private fun RoomTab(padding: PaddingValues, stars: Int, onBack: () -> Unit) {
+private fun RoomTab(padding: PaddingValues, stars: Int, hero: Hero, onBack: () -> Unit) {
     LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { ChildTopBar("Моя комната", stars, onBack) }
+        item { ChildTopBar("Моя комната", stars, onBack, hero) }
         item {
             Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFE6DFFF))) {
                 Column(Modifier.padding(20.dp)) {
                     Text("Комната Алекса", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(12.dp))
                     Box(Modifier.fillMaxWidth().height(210.dp).clip(RoundedCornerShape(22.dp)).background(Color(0xFFC8B8F6))) {
-                        Box(Modifier.align(Alignment.BottomCenter).size(120.dp).clip(CircleShape).background(Color(0xFFFFC7A6)), contentAlignment = Alignment.Center) { Text("А", fontSize = 52.sp, fontWeight = FontWeight.Bold, color = Color(0xFF7B4D9F)) }
+                        Image(painter = painterResource(hero.imageRes), contentDescription = hero.displayName, modifier = Modifier.align(Alignment.BottomCenter).size(150.dp).clip(RoundedCornerShape(24.dp)), contentScale = ContentScale.Crop)
                         Box(Modifier.align(Alignment.BottomStart).padding(18.dp).size(62.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFFFE49B)))
                         Box(Modifier.align(Alignment.TopEnd).padding(18.dp).size(54.dp).clip(CircleShape).background(Color(0xFF9BE4CE)))
                     }
@@ -364,10 +437,10 @@ private fun QuickPreview(title: String, subtitle: String, marker: String) {
 }
 
 @Composable
-private fun ShopTab(padding: PaddingValues, stars: Int, onBuy: (Int) -> Unit) {
+private fun ShopTab(padding: PaddingValues, stars: Int, hero: Hero, onBuy: (Int) -> Unit) {
     val items = listOf("Драконья пицца" to 12, "Крутые очки" to 20, "Космическая лампа" to 30, "Мягкая подушка" to 16)
     LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { ChildTopBar("Магазин", stars) }
+        item { ChildTopBar("Магазин", stars, hero = hero) }
         item {
             Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFE8DEFF))) {
                 Column(Modifier.padding(18.dp)) {
@@ -403,14 +476,14 @@ private fun ShopItem(name: String, price: Int, canBuy: Boolean, onBuy: (Int) -> 
 }
 
 @Composable
-private fun ProfileTab(padding: PaddingValues, stars: Int, completed: Int) {
+private fun ProfileTab(padding: PaddingValues, stars: Int, completed: Int, hero: Hero) {
     LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { ChildTopBar("Профиль", stars) }
+        item { ChildTopBar("Профиль", stars, hero = hero) }
         item {
             Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFD9F5EA))) {
                 Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Box(Modifier.size(72.dp).clip(CircleShape).background(Color(0xFFFFC7A6)), contentAlignment = Alignment.Center) { Text("А", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Color(0xFF7B4D9F)) }
-                    Column { Text("Алекс", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("Уровень 2 · Исследователь", color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(8.dp)); LinearProgressIndicator(progress = { .62f }, modifier = Modifier.width(160.dp).height(8.dp).clip(RoundedCornerShape(50))) }
+                    Image(painter = painterResource(hero.imageRes), contentDescription = hero.displayName, modifier = Modifier.size(72.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+                    Column { Text(hero.displayName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("Уровень 2 · Исследователь", color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(8.dp)); LinearProgressIndicator(progress = { .62f }, modifier = Modifier.width(160.dp).height(8.dp).clip(RoundedCornerShape(50))) }
                 }
             }
         }
