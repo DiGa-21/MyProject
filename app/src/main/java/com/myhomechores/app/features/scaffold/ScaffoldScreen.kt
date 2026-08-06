@@ -30,6 +30,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -159,13 +160,18 @@ private fun ModeCard(title: String, description: String, marker: String, onClick
 @Composable
 private fun ChildModeScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
     var selectedHeroId by rememberSaveable { mutableStateOf<String?>(null) }
+    var childName by rememberSaveable { mutableStateOf("") }
     val selectedHero = Hero.values().firstOrNull { it.id == selectedHeroId }
     if (selectedHero == null) {
         HeroSelectionScreen(modifier = modifier, onBack = onBack) { selectedHeroId = it.id }
         return
     }
+    if (childName.isBlank()) {
+        ChildProfileSetupScreen(hero = selectedHero, modifier = modifier, onBack = onBack) { name -> childName = name }
+        return
+    }
 
-    var tab by rememberSaveable { mutableStateOf(ChildTab.CHORES) }
+    var tab by rememberSaveable { mutableStateOf(ChildTab.ROOM) }
     var completedIds by rememberSaveable { mutableStateOf(setOf<String>()) }
     var selectedOptionalIds by rememberSaveable { mutableStateOf(setOf<String>()) }
     var stars by rememberSaveable { mutableStateOf(24) }
@@ -177,7 +183,7 @@ private fun ChildModeScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
         bottomBar = { ChildBottomBar(tab = tab, onTabSelected = { tab = it }) },
     ) { padding ->
         when (tab) {
-            ChildTab.ROOM -> RoomTab(padding, stars, selectedHero, onBack)
+            ChildTab.ROOM -> RoomTab(padding, stars, selectedHero, childName, onBack)
             ChildTab.CHORES -> ChoresTab(
                 padding = padding,
                 stars = stars,
@@ -185,6 +191,7 @@ private fun ChildModeScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
                 selectedOptionalIds = selectedOptionalIds,
                 category = category,
                 hero = selectedHero,
+                childName = childName,
                 onBack = onBack,
                 onCategoryChange = { category = it },
                 onOptionalSelect = { chore ->
@@ -200,8 +207,43 @@ private fun ChildModeScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
                     stars += chore.reward
                 }
             }
-            ChildTab.SHOP -> ShopTab(padding, stars, selectedHero) { price -> if (stars >= price) stars -= price }
-            ChildTab.PROFILE -> ProfileTab(padding, stars, completedIds.size, selectedHero)
+            ChildTab.SHOP -> ShopTab(padding, stars, selectedHero, childName) { price -> if (stars >= price) stars -= price }
+            ChildTab.PROFILE -> ProfileTab(padding, stars, completedIds.size, selectedHero, childName)
+        }
+    }
+}
+
+@Composable
+private fun ChildProfileSetupScreen(
+    hero: Hero,
+    modifier: Modifier = Modifier,
+    onBack: () -> Unit,
+    onComplete: (String) -> Unit,
+) {
+    var name by rememberSaveable { mutableStateOf("") }
+    Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            OutlinedButton(onClick = onBack, modifier = Modifier.align(Alignment.Start).height(44.dp)) { Text("Назад") }
+            Spacer(Modifier.height(18.dp))
+            Image(painter = painterResource(hero.imageRes), contentDescription = hero.displayName, modifier = Modifier.size(190.dp).clip(RoundedCornerShape(28.dp)), contentScale = ContentScale.Crop)
+            Spacer(Modifier.height(16.dp))
+            Text("Создадим твой личный кабинет", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(8.dp))
+            Text("Как тебя будут называть в приложении?", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(18.dp))
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it.take(20) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Твоё имя или псевдоним") },
+                placeholder = { Text("Например, Саша") },
+            )
+            Spacer(Modifier.height(16.dp))
+            Button(onClick = { onComplete(name.trim()) }, enabled = name.trim().length >= 2, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Войти в комнату") }
         }
     }
 }
@@ -257,7 +299,7 @@ private fun HeroChoiceCard(hero: Hero, onHeroSelected: (Hero) -> Unit) {
 }
 
 @Composable
-private fun ChildTopBar(title: String, stars: Int, onBack: (() -> Unit)? = null, hero: Hero? = null) {
+private fun ChildTopBar(title: String, stars: Int, onBack: (() -> Unit)? = null, hero: Hero? = null, childName: String? = null) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) {
             OutlinedButton(onClick = onBack, contentPadding = PaddingValues(horizontal = 14.dp), modifier = Modifier.height(44.dp)) { Text("Назад") }
@@ -265,7 +307,7 @@ private fun ChildTopBar(title: String, stars: Int, onBack: (() -> Unit)? = null,
         }
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text("Сегодня, ${if (title == "Мои дела") "ты справишься" else "твой маленький мир"}", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+            Text(if (childName.isNullOrBlank()) "Твой маленький мир" else "Привет, $childName!", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
         }
         if (hero != null) {
             Image(painter = painterResource(hero.imageRes), contentDescription = hero.displayName, modifier = Modifier.size(42.dp).clip(CircleShape), contentScale = ContentScale.Crop)
@@ -285,6 +327,7 @@ private fun ChoresTab(
     selectedOptionalIds: Set<String>,
     category: String,
     hero: Hero,
+    childName: String,
     onBack: () -> Unit,
     onCategoryChange: (String) -> Unit,
     onOptionalSelect: (Chore) -> Unit,
@@ -298,7 +341,7 @@ private fun ChoresTab(
     val requiredDone = requiredChores.count { completedIds.contains(it.id) }
     val allRequiredDone = requiredDone == requiredChores.size
     LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { ChildTopBar("Мои дела", stars, onBack, hero) }
+        item { ChildTopBar("Мои дела", stars, onBack, hero, childName) }
         item {
             Column(Modifier.padding(horizontal = 20.dp)) {
                 Row(verticalAlignment = Alignment.Bottom) {
@@ -399,13 +442,13 @@ private fun OptionalChoreCard(
 }
 
 @Composable
-private fun RoomTab(padding: PaddingValues, stars: Int, hero: Hero, onBack: () -> Unit) {
+private fun RoomTab(padding: PaddingValues, stars: Int, hero: Hero, childName: String, onBack: () -> Unit) {
     LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { ChildTopBar("Моя комната", stars, onBack, hero) }
+        item { ChildTopBar("Моя комната", stars, onBack, hero, childName) }
         item {
             Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFE6DFFF))) {
                 Column(Modifier.padding(20.dp)) {
-                    Text("Комната Алекса", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Комната $childName", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(12.dp))
                     Box(Modifier.fillMaxWidth().height(210.dp).clip(RoundedCornerShape(22.dp)).background(Color(0xFFC8B8F6))) {
                         Image(painter = painterResource(hero.imageRes), contentDescription = hero.displayName, modifier = Modifier.align(Alignment.BottomCenter).size(150.dp).clip(RoundedCornerShape(24.dp)), contentScale = ContentScale.Crop)
@@ -437,10 +480,10 @@ private fun QuickPreview(title: String, subtitle: String, marker: String) {
 }
 
 @Composable
-private fun ShopTab(padding: PaddingValues, stars: Int, hero: Hero, onBuy: (Int) -> Unit) {
+private fun ShopTab(padding: PaddingValues, stars: Int, hero: Hero, childName: String, onBuy: (Int) -> Unit) {
     val items = listOf("Драконья пицца" to 12, "Крутые очки" to 20, "Космическая лампа" to 30, "Мягкая подушка" to 16)
     LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { ChildTopBar("Магазин", stars, hero = hero) }
+        item { ChildTopBar("Магазин", stars, hero = hero, childName = childName) }
         item {
             Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFE8DEFF))) {
                 Column(Modifier.padding(18.dp)) {
@@ -476,14 +519,14 @@ private fun ShopItem(name: String, price: Int, canBuy: Boolean, onBuy: (Int) -> 
 }
 
 @Composable
-private fun ProfileTab(padding: PaddingValues, stars: Int, completed: Int, hero: Hero) {
+private fun ProfileTab(padding: PaddingValues, stars: Int, completed: Int, hero: Hero, childName: String) {
     LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { ChildTopBar("Профиль", stars, hero = hero) }
+        item { ChildTopBar("Профиль", stars, hero = hero, childName = childName) }
         item {
             Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFD9F5EA))) {
                 Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     Image(painter = painterResource(hero.imageRes), contentDescription = hero.displayName, modifier = Modifier.size(72.dp).clip(CircleShape), contentScale = ContentScale.Crop)
-                    Column { Text(hero.displayName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("Уровень 2 · Исследователь", color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(8.dp)); LinearProgressIndicator(progress = { .62f }, modifier = Modifier.width(160.dp).height(8.dp).clip(RoundedCornerShape(50))) }
+                    Column { Text(childName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold); Text("Личный кабинет · ${hero.displayName}", color = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.height(8.dp)); LinearProgressIndicator(progress = { .62f }, modifier = Modifier.width(160.dp).height(8.dp).clip(RoundedCornerShape(50))) }
                 }
             }
         }
