@@ -2,6 +2,9 @@
 .idea/
 *.iml
 
+# Codex project-local skills (development tooling, not app source)
+.agents/
+
 # Gradle
 .gradle/
 .gradle-user/
