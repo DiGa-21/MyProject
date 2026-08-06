@@ -58,8 +58,8 @@ import com.myhomechores.app.ui.theme.MyHomeChoresTheme
 private enum class ChildTab { ROOM, CHORES, SHOP, PROFILE }
 
 private enum class Hero(val id: String, val displayName: String, val description: String, val imageRes: Int) {
-    BOY("boy", "Бирюзовый дракончик", "Любит исследовать и пробовать новое", R.drawable.dragon_boy),
-    GIRL("girl", "Лавандовый дракончик", "Поддерживает и замечает твои успехи", R.drawable.dragon_girl),
+    BOY("boy", "Том", "Любит исследовать и пробовать новое", R.drawable.dragon_boy),
+    GIRL("girl", "Лили", "Поддерживает и замечает твои успехи", R.drawable.dragon_girl),
 }
 
 private data class Chore(
