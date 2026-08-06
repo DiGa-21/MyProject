@@ -115,13 +115,13 @@ private fun ModeSelectionScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Box(
-                modifier = Modifier.size(104.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("М", color = MaterialTheme.colorScheme.primary, fontSize = 48.sp, fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(22.dp))
+            Image(
+                painter = painterResource(R.drawable.app_logo),
+                contentDescription = "Логотип приложения Мой путь",
+                modifier = Modifier.size(150.dp).clip(RoundedCornerShape(28.dp)),
+                contentScale = ContentScale.Crop,
+            )
+            Spacer(Modifier.height(18.dp))
             Text(AppConfig.WORKING_NAME, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
             Spacer(Modifier.height(8.dp))
             Text("Маленькие шаги — большие победы", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center)
