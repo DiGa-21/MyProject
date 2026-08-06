@@ -59,13 +59,16 @@ private data class Chore(
     val reward: Int,
     val hint: String,
     val color: Color,
+    val required: Boolean,
 )
 
 private val chores = listOf(
-    Chore("room", "Убрать комнату", "Дом", 5, "Сложить вещи и игрушки", Color(0xFFDCEBFF)),
-    Chore("homework", "Сделать уроки", "Учёба", 8, "Проверить задания в дневнике", Color(0xFFE8DEFF)),
-    Chore("water", "Выпить воды", "Здоровье", 3, "Один полный стакан", Color(0xFFD9F5EA)),
-    Chore("walk", "Погулять", "Здоровье", 6, "Минимум 30 минут на свежем воздухе", Color(0xFFFFE8BC)),
+    Chore("teeth", "Почистить зубы", "Здоровье", 2, "Утром и вечером", Color(0xFFD9F5EA), required = true),
+    Chore("bed", "Заправить кровать", "Дом", 2, "Начать день с порядка", Color(0xFFDCEBFF), required = true),
+    Chore("homework", "Сделать уроки", "Учёба", 5, "Проверить задания в дневнике", Color(0xFFE8DEFF), required = true),
+    Chore("reading", "Почитать 15 минут", "Учёба", 3, "Выбери любую интересную книгу", Color(0xFFE8DEFF), required = false),
+    Chore("walk", "Погулять", "Здоровье", 4, "Минимум 30 минут на свежем воздухе", Color(0xFFFFE8BC), required = false),
+    Chore("table", "Помочь накрыть на стол", "Дом", 3, "Небольшая помощь семье", Color(0xFFDCEBFF), required = false),
 )
 
 @Composable
@@ -147,6 +150,7 @@ private fun ModeCard(title: String, description: String, marker: String, onClick
 private fun ChildModeScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
     var tab by rememberSaveable { mutableStateOf(ChildTab.CHORES) }
     var completedIds by rememberSaveable { mutableStateOf(setOf<String>()) }
+    var selectedOptionalIds by rememberSaveable { mutableStateOf(setOf<String>()) }
     var stars by rememberSaveable { mutableStateOf(24) }
     var category by rememberSaveable { mutableStateOf("Все") }
 
@@ -157,11 +161,23 @@ private fun ChildModeScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
     ) { padding ->
         when (tab) {
             ChildTab.ROOM -> RoomTab(padding, stars, onBack)
-            ChildTab.CHORES -> ChoresTab(padding, stars, completedIds, category, onBack, { category = it }) { chore ->
-                if (completedIds.contains(chore.id)) {
-                    completedIds = completedIds - chore.id
-                    stars -= chore.reward
-                } else {
+            ChildTab.CHORES -> ChoresTab(
+                padding = padding,
+                stars = stars,
+                completedIds = completedIds,
+                selectedOptionalIds = selectedOptionalIds,
+                category = category,
+                onBack = onBack,
+                onCategoryChange = { category = it },
+                onOptionalSelect = { chore ->
+                    selectedOptionalIds = if (selectedOptionalIds.contains(chore.id)) {
+                        selectedOptionalIds - chore.id
+                    } else {
+                        selectedOptionalIds + chore.id
+                    }
+                },
+            ) { chore ->
+                if (!completedIds.contains(chore.id)) {
                     completedIds = completedIds + chore.id
                     stars += chore.reward
                 }
@@ -194,13 +210,20 @@ private fun ChoresTab(
     padding: PaddingValues,
     stars: Int,
     completedIds: Set<String>,
+    selectedOptionalIds: Set<String>,
     category: String,
     onBack: () -> Unit,
     onCategoryChange: (String) -> Unit,
+    onOptionalSelect: (Chore) -> Unit,
     onToggle: (Chore) -> Unit,
 ) {
     val categories = listOf("Все", "Дом", "Учёба", "Здоровье")
-    val visibleChores = if (category == "Все") chores else chores.filter { it.category == category }
+    val requiredChores = chores.filter { it.required }
+    val optionalChores = chores.filter { !it.required }
+    val visibleRequired = requiredChores.filter { category == "Все" || it.category == category }
+    val visibleOptional = optionalChores.filter { category == "Все" || it.category == category }
+    val requiredDone = requiredChores.count { completedIds.contains(it.id) }
+    val allRequiredDone = requiredDone == requiredChores.size
     LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { ChildTopBar("Мои дела", stars, onBack) }
         item {
@@ -208,26 +231,44 @@ private fun ChoresTab(
                 Row(verticalAlignment = Alignment.Bottom) {
                     Column(Modifier.weight(1f)) {
                         Text("Дела на сегодня", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        Text("${completedIds.size} из ${chores.size} выполнено", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("$requiredDone из ${requiredChores.size} обязательных дел", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text("${completedIds.size * 25}%", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text("${requiredDone * 100 / requiredChores.size}%", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(8.dp))
-                LinearProgressIndicator(progress = { completedIds.size.toFloat() / chores.size }, modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(50)))
+                LinearProgressIndicator(progress = { requiredDone.toFloat() / requiredChores.size }, modifier = Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(50)))
                 Spacer(Modifier.height(14.dp))
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     categories.forEach { item -> FilterChip(selected = category == item, onClick = { onCategoryChange(item) }, label = { Text(item) }) }
                 }
             }
         }
-        items(visibleChores, key = { it.id }) { chore -> ChoreCard(chore, completedIds.contains(chore.id), onToggle) }
+        item { SectionHeader("Обязательные дела") }
+        items(visibleRequired, key = { it.id }) { chore -> ChoreCard(chore, completedIds.contains(chore.id), onToggle) }
+        item {
+            Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = if (allRequiredDone) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceVariant)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(if (allRequiredDone) "Мини-игра открыта" else "Мини-игра откроется после обязательных дел", fontWeight = FontWeight.Bold)
+                    Text(if (allRequiredDone) "Ты выполнил основу дня. Теперь можно играть и отдыхать." else "Это не штраф и не соревнование — просто спокойный план на сегодня.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        item {
+            Column(Modifier.padding(horizontal = 20.dp)) {
+                Text("Дела на выбор", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Выбирай любое количество дел, если хочется получить дополнительные звёзды.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        items(visibleOptional, key = { it.id }) { chore ->
+            OptionalChoreCard(chore, completedIds.contains(chore.id), selectedOptionalIds.contains(chore.id), true, onOptionalSelect, onToggle)
+        }
         item {
             Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary), contentAlignment = Alignment.Center) { Text("П", color = Color.White, fontWeight = FontWeight.Bold) }
                     Column(Modifier.weight(1f)) {
                         Text("Помощник рядом", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        Text(if (completedIds.isEmpty()) "Начни с одного простого дела — это уже победа!" else "Отличный темп! Следующее дело можно сделать, когда будет удобно.", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(if (requiredDone == 0) "Начни с одного простого дела — это уже победа!" else "Отличный темп! Следующее дело можно сделать, когда будет удобно.", color = MaterialTheme.colorScheme.onPrimaryContainer)
                     }
                 }
             }
@@ -248,8 +289,37 @@ private fun ChoreCard(chore: Chore, done: Boolean, onToggle: (Chore) -> Unit) {
                 Spacer(Modifier.height(4.dp))
                 Text("+${chore.reward} звёзд", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
             }
-            Button(onClick = { onToggle(chore) }, modifier = Modifier.height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)) {
+            Button(onClick = { if (!done) onToggle(chore) }, enabled = !done, modifier = Modifier.height(48.dp), colors = ButtonDefaults.buttonColors(containerColor = if (done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)) {
                 Text(if (done) "Готово" else "Сделать", color = if (done) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+@Composable
+private fun OptionalChoreCard(
+    chore: Chore,
+    done: Boolean,
+    selected: Boolean,
+    canSelect: Boolean,
+    onSelect: (Chore) -> Unit,
+    onToggle: (Chore) -> Unit,
+) {
+    Card(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), shape = RoundedCornerShape(22.dp), colors = CardDefaults.cardColors(containerColor = chore.color)) {
+        Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(46.dp).clip(CircleShape).background(Color.White.copy(alpha = .8f)), contentAlignment = Alignment.Center) {
+                Text("+", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, fontSize = 22.sp)
+            }
+            Column(Modifier.weight(1f)) {
+                Text(chore.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("+${chore.reward} звёзд · ${chore.hint}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (done) {
+                Button(onClick = { }, enabled = false, modifier = Modifier.height(48.dp)) { Text("Готово") }
+            } else if (selected) {
+                Button(onClick = { onToggle(chore) }, modifier = Modifier.height(48.dp)) { Text("Сделать") }
+            } else {
+                OutlinedButton(onClick = { onSelect(chore) }, enabled = canSelect, modifier = Modifier.height(48.dp)) { Text("Выбрать") }
             }
         }
     }
