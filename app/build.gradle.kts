@@ -17,6 +17,11 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val configuredSupabaseUrl = providers.gradleProperty("supabaseUrl").orNull ?: ""
+        val configuredSupabaseKey = providers.gradleProperty("supabasePublishableKey").orNull ?: ""
+        buildConfigField("String", "SUPABASE_URL", "\"${configuredSupabaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"${configuredSupabaseKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
 
     flavorDimensions += "environment"
