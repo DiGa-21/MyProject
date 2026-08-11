@@ -4,6 +4,7 @@
 
 # Codex project-local skills (development tooling, not app source)
 .agents/
+.worktrees/
 
 # Gradle
 .gradle/
