@@ -11,6 +11,14 @@ import java.time.LocalDate
 import java.util.UUID
 
 class RoomAppRepository(private val database: AppDatabase) : AppRepository {
+    override suspend fun createChildProfile(id: String, displayName: String, parentLabel: String?, hero: HeroId) {
+        val now = System.currentTimeMillis()
+        database.withTransaction {
+            database.childDao().upsert(ChildEntity(id, displayName, parentLabel, hero, now))
+            database.outboxDao().insert(OutboxEntity(UUID.randomUUID().toString(), "child", id, "UPSERT", "{}", now))
+        }
+    }
+
     override fun observeChild(): Flow<ChildProfile?> = database.childDao().observeFirst().map { entity ->
         entity?.let { ChildProfile(it.id, it.displayName, it.parentLabel, it.hero) }
     }

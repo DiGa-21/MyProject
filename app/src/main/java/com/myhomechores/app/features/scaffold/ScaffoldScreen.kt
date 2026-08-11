@@ -44,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,7 +70,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.myhomechores.app.BuildConfig
+import com.myhomechores.app.data.AppRepository
 import com.myhomechores.app.R
 import com.myhomechores.app.core.AppConfig
 import com.myhomechores.app.domain.model.AppRole
@@ -125,9 +128,12 @@ private val parentDefaultChores = listOf(
 fun ScaffoldScreen(
     environment: String,
     modifier: Modifier = Modifier,
+    repository: AppRepository = NoOpAppRepository,
 ) {
-    var selectedRole by rememberSaveable { mutableStateOf<AppRole?>(null) }
-    var childCompletedIds by rememberSaveable { mutableStateOf(setOf<String>()) }
+    val scaffoldViewModel: ScaffoldViewModel = viewModel(factory = ScaffoldViewModel.Factory(repository))
+    val state by scaffoldViewModel.state.collectAsState()
+    val selectedRole = state.selectedRole
+    val childCompletedIds = state.childCompletedIds
     var childName by rememberSaveable { mutableStateOf("Алекс") }
     var parentName by rememberSaveable { mutableStateOf("Родитель") }
 
@@ -135,25 +141,25 @@ fun ScaffoldScreen(
         null -> ModeSelectionScreen(
             environment = environment,
             modifier = modifier,
-            onChildClick = { selectedRole = AppRole.CHILD },
-            onParentClick = { selectedRole = AppRole.PARENT },
+            onChildClick = { scaffoldViewModel.selectRole(AppRole.CHILD) },
+            onParentClick = { scaffoldViewModel.selectRole(AppRole.PARENT) },
         )
 
         AppRole.CHILD -> ChildModeScreen(
             modifier = modifier,
             completedIds = childCompletedIds,
-            onCompletedIdsChange = { childCompletedIds = it },
-            onChildNameChange = { childName = it },
-            onBack = { selectedRole = null },
+            onCompletedIdsChange = scaffoldViewModel::updateChildCompletedIds,
+            onChildNameChange = { childName = it; scaffoldViewModel.updateChildName(it) },
+            onBack = { scaffoldViewModel.selectRole(null) },
         )
         AppRole.PARENT -> ParentModeScreen(
             modifier = modifier,
             parentName = parentName,
-            onParentNameChange = { parentName = it },
+            onParentNameChange = { parentName = it; scaffoldViewModel.updateParentName(it) },
             childName = childName,
             childCompletedIds = childCompletedIds,
-            onChildCompletedIdsChange = { childCompletedIds = it },
-            onBack = { selectedRole = null },
+            onChildCompletedIdsChange = scaffoldViewModel::updateChildCompletedIds,
+            onBack = { scaffoldViewModel.selectRole(null) },
         )
     }
 }

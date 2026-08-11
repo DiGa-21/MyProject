@@ -11,6 +11,7 @@ workManager = "2.10.2"
 ktor = "3.2.3"
 supabase = "3.2.4"
 ksp = "2.3.11"
+lifecycle = "2.9.3"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
@@ -31,6 +32,7 @@ androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version
 ktor-client-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" }
 supabase-auth = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref = "supabase" }
 supabase-postgrest = { module = "io.github.jan-tennert.supabase:postgrest-kt", version.ref = "supabase" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

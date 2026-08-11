@@ -36,6 +36,8 @@ data class Completion(
 )
 
 interface AppRepository {
+    suspend fun createChildProfile(id: String, displayName: String, parentLabel: String? = null, hero: HeroId = HeroId.BOY)
+
     fun observeChild(): Flow<ChildProfile?>
 
     fun observeChores(childId: String, date: LocalDate): Flow<List<Chore>>
