@@ -137,6 +137,9 @@ fun ScaffoldScreen(
     var childName by rememberSaveable { mutableStateOf("Алекс") }
     var parentName by rememberSaveable { mutableStateOf("Родитель") }
 
+    LaunchedEffect(state.childName) { childName = state.childName }
+    LaunchedEffect(state.parentName) { parentName = state.parentName }
+
     when (selectedRole) {
         null -> ModeSelectionScreen(
             environment = environment,
