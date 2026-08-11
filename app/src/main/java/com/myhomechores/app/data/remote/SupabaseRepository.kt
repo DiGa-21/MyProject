@@ -6,6 +6,7 @@ import io.github.jan.supabase.auth.user.UserInfo
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.rpc
+import com.myhomechores.app.data.local.OutboxEntity
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -66,5 +67,15 @@ class SupabaseRepository(private val client: io.github.jan.supabase.SupabaseClie
 
     suspend fun insertCompletion(completion: RemoteCompletion) {
         client.from("completions").upsert(completion)
+    }
+
+    suspend fun pushOutbox(entry: OutboxEntity) {
+        when (entry.entityType) {
+            "completion" -> client.from("completions").update({
+                set("status", if (entry.operation == "CANCEL") "CANCELLED" else "PENDING")
+            }) { filter { eq("id", entry.entityId) } }
+            "child" -> Unit
+            else -> Unit
+        }
     }
 }

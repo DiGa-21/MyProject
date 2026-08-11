@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.room.Room
 import com.myhomechores.app.data.RoomAppRepository
 import com.myhomechores.app.data.local.AppDatabase
+import com.myhomechores.app.data.sync.SyncScheduler
 import com.myhomechores.app.features.scaffold.ScaffoldScreen
 import com.myhomechores.app.ui.theme.MyHomeChoresTheme
 
@@ -16,6 +17,7 @@ class MainActivity : ComponentActivity() {
             .fallbackToDestructiveMigration()
             .build()
         val repository = RoomAppRepository(database)
+        SyncScheduler.schedule(this)
         setContent {
             MyHomeChoresTheme {
                 ScaffoldScreen(environment = BuildConfig.APP_ENVIRONMENT, repository = repository)

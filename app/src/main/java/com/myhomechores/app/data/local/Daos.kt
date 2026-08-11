@@ -55,4 +55,13 @@ interface RewardDao {
 interface OutboxDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insert(entry: OutboxEntity)
+
+    @Query("SELECT * FROM outbox ORDER BY createdAt LIMIT 50")
+    suspend fun pending(): List<OutboxEntity>
+
+    @Query("UPDATE outbox SET attempts = attempts + 1 WHERE id = :id")
+    suspend fun markAttempt(id: String)
+
+    @Query("DELETE FROM outbox WHERE id = :id")
+    suspend fun delete(id: String)
 }
