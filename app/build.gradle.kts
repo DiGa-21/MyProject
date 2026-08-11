@@ -70,6 +70,8 @@ android {
             "AndroidGradlePluginVersion",
             "GradleDependency",
             "NewerVersionAvailable",
+            "UnusedResources",
+            "IconLauncherShape",
         )
     }
 
