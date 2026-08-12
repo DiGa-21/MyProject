@@ -12,6 +12,7 @@ data class ChildProfile(
     val displayName: String,
     val parentLabel: String?,
     val hero: HeroId,
+    val heroSelected: Boolean = false,
 )
 
 data class Chore(
@@ -37,6 +38,10 @@ data class Completion(
 
 interface AppRepository {
     suspend fun createChildProfile(id: String, displayName: String, parentLabel: String? = null, hero: HeroId = HeroId.BOY)
+
+    suspend fun replaceLinkedChild(profile: ChildProfile)
+
+    suspend fun clearLinkedChild()
 
     fun observeChild(): Flow<ChildProfile?>
 

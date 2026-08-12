@@ -7,6 +7,7 @@ import com.myhomechores.app.data.Actor
 import com.myhomechores.app.data.CompletionStatus
 import com.myhomechores.app.data.HeroId
 import com.myhomechores.app.data.RoomAppRepository
+import com.myhomechores.app.data.ChildProfile
 import java.time.LocalDate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -61,5 +62,21 @@ class RoomRepositoryTest {
 
         repository.undoCompletion(first.single().id, Actor.CHILD)
         assertEquals(CompletionStatus.CANCELLED, repository.completions("child-1").single().status)
+
+        repository.completeChore("teeth", "child-1", date)
+        assertEquals(CompletionStatus.PENDING, repository.completions("child-1").single().status)
+    }
+
+    @Test
+    fun sameChildRefreshPreservesPendingOutboxButRelinkClearsIt() = runBlocking {
+        val date = LocalDate.of(2026, 8, 11)
+        repository.completeChore("teeth", "child-1", date)
+        assertEquals(1, database.outboxDao().pending().count { it.entityType == "completion" })
+
+        repository.replaceLinkedChild(ChildProfile("child-1", "Аня", null, HeroId.BOY, true))
+        assertEquals(1, database.outboxDao().pending().count { it.entityType == "completion" })
+
+        repository.replaceLinkedChild(ChildProfile("child-2", "Маша", null, HeroId.GIRL, true))
+        assertEquals(0, database.outboxDao().pending().count { it.entityType == "completion" })
     }
 }

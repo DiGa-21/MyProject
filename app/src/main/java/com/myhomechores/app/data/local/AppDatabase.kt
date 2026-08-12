@@ -2,6 +2,8 @@ package com.myhomechores.app.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import com.myhomechores.app.data.CompletionStatus
@@ -23,7 +25,7 @@ class AppDatabaseConverters {
 
 @Database(
     entities = [ChildEntity::class, ChoreEntity::class, CompletionEntity::class, RewardEntity::class, OutboxEntity::class],
-    version = 1,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(AppDatabaseConverters::class)
@@ -33,4 +35,16 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun completionDao(): CompletionDao
     abstract fun rewardDao(): RewardDao
     abstract fun outboxDao(): OutboxDao
+}
+
+val Migration1To2 = object : Migration(1, 2) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE children ADD COLUMN heroSelected INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+val Migration2To3 = object : Migration(2, 3) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE outbox ADD COLUMN actor TEXT NOT NULL DEFAULT 'CHILD'")
+    }
 }

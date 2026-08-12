@@ -43,6 +43,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -68,6 +69,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -76,6 +80,15 @@ import com.myhomechores.app.data.AppRepository
 import com.myhomechores.app.R
 import com.myhomechores.app.core.AppConfig
 import com.myhomechores.app.domain.model.AppRole
+import com.myhomechores.app.features.auth.AuthGateway
+import com.myhomechores.app.features.auth.ParentAuthRoute
+import com.myhomechores.app.features.auth.ParentProfileViewModel
+import com.myhomechores.app.features.family.ChildConnectionStage
+import com.myhomechores.app.features.family.ChildConnectionViewModel
+import com.myhomechores.app.features.family.FamilyGateway
+import com.myhomechores.app.features.family.InviteCodeRoute
+import com.myhomechores.app.features.family.ParentChildLinkCard
+import com.myhomechores.app.features.family.ParentChildLinkViewModel
 import com.myhomechores.app.ui.theme.MyHomeChoresTheme
 import kotlinx.coroutines.delay
 import kotlin.math.PI
@@ -129,6 +142,11 @@ fun ScaffoldScreen(
     environment: String,
     modifier: Modifier = Modifier,
     repository: AppRepository = NoOpAppRepository,
+    parentAuthGateway: AuthGateway? = null,
+    parentFamilyGateway: FamilyGateway? = null,
+    childFamilyGateway: FamilyGateway? = null,
+    passwordRecoveryRequested: Boolean = false,
+    onPasswordRecoveryHandled: () -> Unit = {},
 ) {
     val scaffoldViewModel: ScaffoldViewModel = viewModel(factory = ScaffoldViewModel.Factory(repository))
     val state by scaffoldViewModel.state.collectAsState()
@@ -148,22 +166,113 @@ fun ScaffoldScreen(
             onParentClick = { scaffoldViewModel.selectRole(AppRole.PARENT) },
         )
 
-        AppRole.CHILD -> ChildModeScreen(
+        AppRole.CHILD -> {
+            if (childFamilyGateway == null) {
+                ChildModeScreen(
+                    modifier = modifier,
+                    completedIds = childCompletedIds,
+                    onCompletedIdsChange = scaffoldViewModel::updateChildCompletedIds,
+                    onChildNameChange = { childName = it; scaffoldViewModel.updateChildName(it) },
+                    onBack = { scaffoldViewModel.selectRole(null) },
+                )
+            } else {
+                ConnectedChildRoute(
+                    gateway = childFamilyGateway,
+                    repository = repository,
+                    modifier = modifier,
+                    completedIds = childCompletedIds,
+                    onCompletedIdsChange = scaffoldViewModel::updateChildCompletedIds,
+                    onChildNameChange = { childName = it; scaffoldViewModel.updateChildName(it) },
+                    onBack = { scaffoldViewModel.selectRole(null) },
+                )
+            }
+        }
+        AppRole.PARENT -> {
+            val parentContent: @Composable (() -> Unit) -> Unit = { onSignOut ->
+                ParentModeScreen(
+                    modifier = modifier,
+                    parentName = parentName,
+                    onParentNameChange = { parentName = it; scaffoldViewModel.updateParentName(it) },
+                    childName = childName,
+                    childCompletedIds = childCompletedIds,
+                    onChildCompletedIdsChange = scaffoldViewModel::updateChildCompletedIds,
+                    onBack = { scaffoldViewModel.selectRole(null) },
+                    onSignOut = onSignOut,
+                    familyGateway = parentFamilyGateway,
+                    authGateway = parentAuthGateway,
+                )
+            }
+            if (parentAuthGateway == null) {
+                parentContent {}
+            } else {
+                ParentAuthRoute(
+                    gateway = parentAuthGateway,
+                    onBack = { scaffoldViewModel.selectRole(null) },
+                    passwordRecoveryRequested = passwordRecoveryRequested,
+                    onPasswordRecoveryHandled = onPasswordRecoveryHandled,
+                    parentContent = parentContent,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectedChildRoute(
+    gateway: FamilyGateway,
+    repository: AppRepository,
+    modifier: Modifier,
+    completedIds: Set<String>,
+    onCompletedIdsChange: (Set<String>) -> Unit,
+    onChildNameChange: (String) -> Unit,
+    onBack: () -> Unit,
+) {
+    val connectionViewModel: ChildConnectionViewModel = viewModel(
+        factory = ChildConnectionViewModel.Factory(gateway, repository),
+    )
+    val connection by connectionViewModel.state.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) connectionViewModel.refresh()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(connection.stage) {
+        while (connection.stage == ChildConnectionStage.READY) {
+            delay(30_000)
+            connectionViewModel.revalidateReadyConnection()
+        }
+    }
+    when (connection.stage) {
+        ChildConnectionStage.CHECKING -> Surface(modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Box(contentAlignment = Alignment.Center) { androidx.compose.material3.CircularProgressIndicator() }
+        }
+        ChildConnectionStage.NEEDS_CODE -> InviteCodeRoute(
+            gateway = gateway,
+            localRepository = repository,
             modifier = modifier,
-            completedIds = childCompletedIds,
-            onCompletedIdsChange = scaffoldViewModel::updateChildCompletedIds,
-            onChildNameChange = { childName = it; scaffoldViewModel.updateChildName(it) },
-            onBack = { scaffoldViewModel.selectRole(null) },
+            onBack = onBack,
+            onLinked = connectionViewModel::refresh,
         )
-        AppRole.PARENT -> ParentModeScreen(
-            modifier = modifier,
-            parentName = parentName,
-            onParentNameChange = { parentName = it; scaffoldViewModel.updateParentName(it) },
-            childName = childName,
-            childCompletedIds = childCompletedIds,
-            onChildCompletedIdsChange = scaffoldViewModel::updateChildCompletedIds,
-            onBack = { scaffoldViewModel.selectRole(null) },
-        )
+        ChildConnectionStage.NEEDS_HERO -> HeroSelectionScreen(modifier = modifier, onBack = onBack) { hero ->
+            connectionViewModel.chooseHero(if (hero == Hero.GIRL) com.myhomechores.app.data.HeroId.GIRL else com.myhomechores.app.data.HeroId.BOY)
+        }
+        ChildConnectionStage.READY -> connection.profile?.let { profile ->
+            ChildModeScreen(
+                modifier = modifier,
+                completedIds = completedIds,
+                onCompletedIdsChange = onCompletedIdsChange,
+                onChildNameChange = { value ->
+                    onChildNameChange(value)
+                    connectionViewModel.updateName(value)
+                },
+                onBack = onBack,
+                connectedName = profile.displayName,
+                connectedHeroId = if (profile.hero == com.myhomechores.app.data.HeroId.GIRL) Hero.GIRL.id else Hero.BOY.id,
+            )
+        }
     }
 }
 
@@ -229,9 +338,11 @@ private fun ChildModeScreen(
     onCompletedIdsChange: (Set<String>) -> Unit,
     onChildNameChange: (String) -> Unit,
     onBack: () -> Unit,
+    connectedName: String? = null,
+    connectedHeroId: String? = null,
 ) {
-    var selectedHeroId by rememberSaveable { mutableStateOf<String?>(null) }
-    var childName by rememberSaveable { mutableStateOf("") }
+    var selectedHeroId by rememberSaveable { mutableStateOf<String?>(connectedHeroId) }
+    var childName by rememberSaveable { mutableStateOf(connectedName.orEmpty()) }
     val selectedHero = Hero.values().firstOrNull { it.id == selectedHeroId }
     if (selectedHero == null) {
         HeroSelectionScreen(modifier = modifier, onBack = onBack) { selectedHeroId = it.id }
@@ -1113,12 +1224,20 @@ private fun ParentModeScreen(
     childCompletedIds: Set<String>,
     onChildCompletedIdsChange: (Set<String>) -> Unit,
     onBack: () -> Unit,
+    onSignOut: () -> Unit,
+    familyGateway: FamilyGateway?,
+    authGateway: AuthGateway?,
 ) {
     var tab by rememberSaveable { mutableStateOf(ParentTab.OVERVIEW) }
     var completedIds by rememberSaveable { mutableStateOf(setOf<String>()) }
     var customTaskTitles by rememberSaveable { mutableStateOf(emptyList<String>()) }
     var stars by rememberSaveable { mutableStateOf(12) }
     var showAddTaskDialog by rememberSaveable { mutableStateOf(false) }
+    val profileViewModel: ParentProfileViewModel? = authGateway?.let {
+        viewModel(factory = ParentProfileViewModel.Factory(it))
+    }
+    val profileState = profileViewModel?.state?.collectAsState()?.value
+    val effectiveParentName = profileState?.displayName?.takeIf { it.isNotBlank() } ?: parentName
 
     val allParentChores = parentDefaultChores + customTaskTitles.mapIndexed { index, title ->
         Chore("parent_custom_$index", title, "Моё дело", 2, "Добавлено вами", Color(0xFFE8DEFF), required = false)
@@ -1155,7 +1274,7 @@ private fun ParentModeScreen(
             ParentTab.OVERVIEW -> ParentOverviewTab(
                 padding = padding,
                 stars = stars,
-                parentName = parentName,
+                parentName = effectiveParentName,
                 completedCount = completedIds.size,
                 totalCount = allParentChores.size,
                 onBack = onBack,
@@ -1163,7 +1282,7 @@ private fun ParentModeScreen(
             ParentTab.CHORES -> ParentChoresTab(
                 padding = padding,
                 stars = stars,
-                parentName = parentName,
+                parentName = effectiveParentName,
                 chores = allParentChores,
                 completedIds = completedIds,
                 onBack = onBack,
@@ -1184,20 +1303,32 @@ private fun ParentModeScreen(
                 progress = parentGameProgress,
                 onBack = onBack,
             )
-            ParentTab.CHILDREN -> ParentChildrenTab(
-                padding = padding,
-                childName = childName,
-                childCompletedIds = childCompletedIds,
-                onBack = onBack,
-                onMarkChildChore = { chore -> onChildCompletedIdsChange(childCompletedIds + chore.id) },
-            )
+            ParentTab.CHILDREN -> if (familyGateway == null) {
+                ParentChildrenTab(
+                    padding = padding,
+                    childName = childName,
+                    childCompletedIds = childCompletedIds,
+                    onBack = onBack,
+                    onMarkChildChore = { chore -> onChildCompletedIdsChange(childCompletedIds + chore.id) },
+                )
+            } else {
+                ParentChildrenConnectedTab(
+                    gateway = familyGateway,
+                    padding = padding,
+                    onBack = onBack,
+                )
+            }
             ParentTab.PROFILE -> ParentProfileTab(
                 padding = padding,
                 stars = stars,
                 completedCount = completedIds.size,
-                parentName = parentName,
-                onNameChange = onParentNameChange,
+                parentName = effectiveParentName,
+                onNameChange = { value ->
+                    onParentNameChange(value)
+                    profileViewModel?.updateName(value)
+                },
                 onBack = onBack,
+                onSignOut = onSignOut,
             )
         }
     }
@@ -1580,6 +1711,7 @@ private fun ParentProfileTab(
     parentName: String,
     onNameChange: (String) -> Unit,
     onBack: () -> Unit,
+    onSignOut: () -> Unit,
 ) {
     LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { ChildTopBar("Мой профиль", stars, onBack, subtitle = "Личные привычки и баланс семьи") }
@@ -1599,6 +1731,104 @@ private fun ParentProfileTab(
             }
         }
         item { Row(Modifier.padding(horizontal = 20.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) { StatCard("Готово", completedCount.toString(), Modifier.weight(1f)); StatCard("Звёзды", stars.toString(), Modifier.weight(1f)); StatCard("Детей", "1", Modifier.weight(1f)) } }
+        item {
+            OutlinedButton(
+                onClick = onSignOut,
+                modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(52.dp),
+            ) {
+                Text("Выйти из аккаунта")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ParentChildrenConnectedTab(
+    gateway: FamilyGateway,
+    padding: PaddingValues,
+    onBack: () -> Unit,
+) {
+    val linkViewModel: ParentChildLinkViewModel = viewModel(
+        factory = ParentChildLinkViewModel.Factory(gateway),
+    )
+    val linkState by linkViewModel.state.collectAsState()
+    DisposableEffect(linkViewModel) {
+        onDispose { linkViewModel.clearInvite() }
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, linkViewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) linkViewModel.refreshSelectedProgress()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(linkState.selectedChildId) {
+        while (linkState.selectedChildId != null) {
+            delay(30_000)
+            linkViewModel.refreshSelectedProgress()
+        }
+    }
+    LazyColumn(
+        contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        item { ChildTopBar("Дети", 0, onBack, subtitle = "Профили, коды и прогресс") }
+        item {
+            ParentChildLinkCard(
+                state = linkState,
+                onCreateChild = linkViewModel::createChild,
+                onCreateInvite = linkViewModel::createInvite,
+                onDisconnect = linkViewModel::disconnect,
+            )
+        }
+        if (linkState.children.isNotEmpty()) {
+            item {
+                Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Выбери ребёнка", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        linkState.children.forEach { child ->
+                            FilterChip(
+                                selected = linkState.selectedChildId == child.id,
+                                onClick = { linkViewModel.selectChild(child.id) },
+                                label = { Text(child.parent_label?.takeIf { it.isNotBlank() } ?: child.display_name) },
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                Card(
+                    Modifier.padding(horizontal = 20.dp).fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val selectedChild = linkState.children.firstOrNull { it.id == linkState.selectedChildId }
+                        Text("Прогресс ${selectedChild?.display_name.orEmpty()}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        linkState.progress.forEach { chore ->
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(chore.title)
+                                    Text(if (chore.completed) "Выполнено" else "Пока не отмечено", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                OutlinedButton(onClick = { linkViewModel.setCompletion(chore.client_key, !chore.completed) }) {
+                                    Text(if (chore.completed) "Отменить" else "Засчитать")
+                                }
+                            }
+                        }
+                        if (linkState.progress.isEmpty() && !linkState.loading) {
+                            Text("Дела для этого ребёнка пока не найдены", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        } else {
+            item { Text("Создайте защищённый профиль выше, чтобы связать его с устройством ребёнка.", Modifier.padding(horizontal = 20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
     }
 }
 

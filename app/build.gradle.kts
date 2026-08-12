@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.compiler)
@@ -18,8 +20,19 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        val configuredSupabaseUrl = providers.gradleProperty("supabaseUrl").orNull ?: ""
-        val configuredSupabaseKey = providers.gradleProperty("supabasePublishableKey").orNull ?: ""
+        val localProperties = Properties().apply {
+            rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { stream ->
+                load(stream)
+            }
+        }
+        val configuredSupabaseUrl = providers.gradleProperty("supabaseUrl").orNull
+            ?: localProperties.getProperty("supabaseUrl")
+            ?: System.getenv("SUPABASE_URL")
+            ?: ""
+        val configuredSupabaseKey = providers.gradleProperty("supabasePublishableKey").orNull
+            ?: localProperties.getProperty("supabasePublishableKey")
+            ?: System.getenv("SUPABASE_PUBLISHABLE_KEY")
+            ?: ""
         buildConfigField("String", "SUPABASE_URL", "\"${configuredSupabaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"${configuredSupabaseKey.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }
@@ -107,6 +120,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

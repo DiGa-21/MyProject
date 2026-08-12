@@ -1,8 +1,11 @@
-# Supabase setup
+# Настройка Supabase
 
-1. Create a Supabase project and apply `migrations/001_family_data.sql` in the SQL editor.
-2. In the Android app, configure only the project URL and publishable key through local Gradle properties or an untracked environment file. Never commit a service-role key.
-3. Create a parent account, insert a child row and a short-lived `invite_codes` row from the parent session, then call `consume_invite_code` once from the child session.
-4. Run `tests/rls_checks.sql` using separate parent and child sessions. The child receives `display_name` and `hero`; `parent_label` is exposed only by `parent_children`.
+1. Создайте проект Supabase и примените `migrations/001_family_data.sql`, затем `migrations/002_child_invite_onboarding.sql`.
+2. В Android настройте только URL проекта и publishable key. Service-role key запрещено помещать в приложение или GitHub.
+3. Включите **Authentication → Providers → Anonymous Sign-Ins**. Анонимная сессия даёт детскому устройству собственный идентификатор; родительский пароль ребёнку не нужен.
+4. Добавьте `myway://auth-callback/password-recovery` в разрешённые Redirect URLs.
+5. Проверьте контракт базы через `tests/rls_checks.sql` и `tests/child_invite_checks.sql`.
 
-The Android client remains offline-first: Room is the source of truth and the sync worker will retry idempotent writes after connectivity returns.
+Анонимные пользователи имеют роль `authenticated`, но родительские RPC дополнительно проверяют JWT `is_anonymous = false`. Детский профиль не содержит `parent_label`, а прямое изменение строки `children` для ребёнка запрещено. Одноразовый код генерируется криптографически, хранится как SHA-256-хеш, действует 15 минут и после пяти ошибок блокирует попытки на 5 минут по сетевому адресу (если его передал прокси Supabase) или по анонимной сессии.
+
+Перед общедоступным выпуском включите CAPTCHA/Turnstile, задайте безопасный лимит анонимных регистраций и периодически удаляйте старые непривязанные анонимные аккаунты.

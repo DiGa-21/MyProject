@@ -13,6 +13,7 @@ data class ChildEntity(
     val parentLabel: String?,
     val hero: HeroId,
     val updatedAt: Long,
+    val heroSelected: Boolean = false,
 )
 
 @Entity(
@@ -66,4 +67,5 @@ data class OutboxEntity(
     val payload: String,
     val createdAt: Long,
     val attempts: Int = 0,
+    val actor: String = "CHILD",
 )

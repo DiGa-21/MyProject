@@ -32,9 +32,6 @@ class ScaffoldViewModel(private val repository: AppRepository) : ViewModel() {
 
     init {
         viewModelScope.launch {
-            if (repository.observeChild().first() == null) {
-                repository.createChildProfile("local-child", mutableState.value.childName)
-            }
             repository.observeChild().collectLatest { profile ->
                 if (profile != null) {
                     mutableState.update { it.copy(childName = profile.displayName) }
@@ -63,10 +60,7 @@ class ScaffoldViewModel(private val repository: AppRepository) : ViewModel() {
         val previous = mutableState.value.childCompletedIds
         mutableState.update { it.copy(childCompletedIds = next) }
         viewModelScope.launch {
-            val profile = repository.observeChild().first() ?: run {
-                repository.createChildProfile("local-child", mutableState.value.childName)
-                repository.observeChild().first()
-            }
+            val profile = repository.observeChild().first()
             if (profile == null) return@launch
             val date = LocalDate.now()
             (next - previous).forEach { repository.completeChore(it, profile.id, date) }
@@ -100,6 +94,8 @@ class ScaffoldViewModel(private val repository: AppRepository) : ViewModel() {
 
 object NoOpAppRepository : AppRepository {
     override suspend fun createChildProfile(id: String, displayName: String, parentLabel: String?, hero: HeroId) = Unit
+    override suspend fun replaceLinkedChild(profile: ChildProfile) = Unit
+    override suspend fun clearLinkedChild() = Unit
     override fun observeChild() = flowOf<ChildProfile?>(null)
     override fun observeChores(childId: String, date: LocalDate) = flowOf(emptyList<com.myhomechores.app.data.Chore>())
     override suspend fun completions(childId: String) = emptyList<Completion>()
