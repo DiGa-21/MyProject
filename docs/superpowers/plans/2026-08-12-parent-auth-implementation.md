@@ -1,5 +1,7 @@
 # Parent Authentication Implementation Plan
 
+> Проверка владельцем приложения на русском языке: [`docs/review/parent-auth-and-child-invite-review.md`](../../review/parent-auth-and-child-invite-review.md). Английские названия и код ниже предназначены только для программиста.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add the approved native parent registration, persistent login, logout, and password-recovery flow before the existing parent cabinet.
