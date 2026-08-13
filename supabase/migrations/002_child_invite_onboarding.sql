@@ -97,7 +97,7 @@ create or replace function public.create_child_invite(input_child_id uuid)
 returns table(code text, expires_at timestamptz)
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   generated_code text;
@@ -156,7 +156,7 @@ returns table(
 )
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   caller uuid := auth.uid();

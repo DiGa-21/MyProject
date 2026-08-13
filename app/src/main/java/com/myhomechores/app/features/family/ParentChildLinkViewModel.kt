@@ -28,6 +28,7 @@ class ParentChildLinkViewModel(private val gateway: FamilyGateway) : ViewModel()
     private val mutableState = MutableStateFlow(ParentChildLinkUiState())
     val state: StateFlow<ParentChildLinkUiState> = mutableState.asStateFlow()
     private var progressJob: Job? = null
+    private var createChildJob: Job? = null
 
     init { refresh() }
 
@@ -48,13 +49,23 @@ class ParentChildLinkViewModel(private val gateway: FamilyGateway) : ViewModel()
 
     fun createChild(displayName: String, parentLabel: String?) {
         val cleanName = displayName.trim()
+        val cleanLabel = parentLabel?.trim()?.ifBlank { null }
         if (cleanName.isBlank()) {
             mutableState.update { it.copy(error = "Введи имя ребёнка") }
             return
         }
-        viewModelScope.launch {
+        val identicalProfileExists = mutableState.value.children.any { child ->
+            child.display_name.trim().equals(cleanName, ignoreCase = true) &&
+                child.parent_label?.trim()?.ifBlank { null }.equals(cleanLabel, ignoreCase = true)
+        }
+        if (identicalProfileExists) {
+            mutableState.update { it.copy(error = "Такой профиль ребёнка уже создан") }
+            return
+        }
+        if (createChildJob?.isActive == true) return
+        createChildJob = viewModelScope.launch {
             setLoading()
-            runCatching { gateway.createChildProfile(cleanName, parentLabel?.trim()?.ifBlank { null }) }
+            runCatching { gateway.createChildProfile(cleanName, cleanLabel) }
                 .onSuccess { child ->
                     mutableState.update {
                         it.copy(loading = false, children = it.children + child, selectedChildId = child.id, progress = emptyList())

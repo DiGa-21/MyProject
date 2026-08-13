@@ -1,6 +1,7 @@
 package com.myhomechores.app.features.family
 
 import com.myhomechores.app.features.auth.AuthSessionState
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,34 @@ class ParentChildLinkViewModelTest {
         advanceUntilIdle()
         assertEquals("Саша", gateway.createdDisplayName)
         assertEquals("Саша, школа", gateway.createdParentLabel)
+    }
+
+    @Test
+    fun repeated_create_while_request_is_running_creates_only_one_profile() = runTest(dispatcher) {
+        advanceUntilIdle()
+        gateway.createChildGate = CompletableDeferred()
+
+        viewModel.createChild("lk", "ghj")
+        runCurrent()
+        viewModel.createChild("lk", "ghj")
+        runCurrent()
+
+        assertEquals(1, gateway.createChildCallCount)
+        gateway.createChildGate?.complete(Unit)
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun repeated_create_after_success_does_not_create_an_identical_profile() = runTest(dispatcher) {
+        advanceUntilIdle()
+
+        viewModel.createChild("lk", "ghj")
+        advanceUntilIdle()
+        viewModel.createChild("lk", "ghj")
+        advanceUntilIdle()
+
+        assertEquals(1, gateway.createChildCallCount)
+        assertEquals("Такой профиль ребёнка уже создан", viewModel.state.value.error)
     }
 
     @Test
@@ -89,12 +118,16 @@ private class ParentFakeGateway : FamilyGateway {
     override val session = MutableStateFlow<AuthSessionState>(AuthSessionState.Authenticated("parent", false))
     var createdDisplayName: String? = null
     var createdParentLabel: String? = null
+    var createChildCallCount = 0
+    var createChildGate: CompletableDeferred<Unit>? = null
     var children = emptyList<RemoteParentChild>()
     val codes = ArrayDeque<String>()
     val progress = mutableMapOf<String, List<RemoteChoreProgress>>()
     var lastAction: ParentCompletionAction? = null
     override suspend fun ensureAnonymousChildSession() = Unit
     override suspend fun createChildProfile(displayName: String, parentLabel: String?): RemoteParentChild {
+        createChildCallCount += 1
+        createChildGate?.await()
         createdDisplayName = displayName
         createdParentLabel = parentLabel
         return RemoteParentChild("child-1", "family", display_name = displayName, parent_label = parentLabel)

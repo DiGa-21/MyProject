@@ -62,6 +62,17 @@ class AuthViewModelTest {
     }
 
     @Test
+    fun selecting_auth_tab_after_confirmation_returns_to_form() = runTest(dispatcher) {
+        gateway.registrationResult = RegistrationResult.EmailConfirmationRequired
+        viewModel.signUp("Parent", "parent@example.com", "123456", "123456")
+        advanceUntilIdle()
+
+        viewModel.selectTab(AuthTab.SIGN_IN)
+
+        assertEquals(AuthStage.UNAUTHENTICATED, viewModel.state.value.stage)
+    }
+
+    @Test
     fun reset_confirmation_is_neutral() = runTest(dispatcher) {
         viewModel.requestPasswordReset("unknown@example.com")
 

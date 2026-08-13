@@ -55,7 +55,18 @@ class AuthViewModel(private val gateway: AuthGateway) : ViewModel() {
     }
 
     fun selectTab(tab: AuthTab) {
-        mutableState.update { it.copy(tab = tab, errors = AuthFieldErrors(), notice = null) }
+        mutableState.update {
+            it.copy(
+                stage = if (it.stage == AuthStage.AWAITING_EMAIL_CONFIRMATION) {
+                    AuthStage.UNAUTHENTICATED
+                } else {
+                    it.stage
+                },
+                tab = tab,
+                errors = AuthFieldErrors(),
+                notice = null,
+            )
+        }
     }
 
     fun showResetDialog() {

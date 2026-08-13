@@ -52,7 +52,10 @@ class SupabaseRepository(private val client: io.github.jan.supabase.SupabaseClie
     }
 
     override suspend fun signUpParent(email: String, password: String, displayName: String): RegistrationResult {
-        client.auth.signUpWith(Email) {
+        client.auth.signUpWith(
+            provider = Email,
+            redirectUrl = "myway://auth-callback/email-confirmation",
+        ) {
             this.email = email
             this.password = password
             data = buildJsonObject { put("display_name", displayName) }

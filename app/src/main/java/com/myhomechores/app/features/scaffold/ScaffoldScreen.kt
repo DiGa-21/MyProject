@@ -99,6 +99,13 @@ private enum class ChildTab { ROOM, CHORES, GAME, SHOP, PROFILE }
 
 private enum class ParentTab { OVERVIEW, CHORES, GAME, CHILDREN, PROFILE }
 
+internal fun refreshParentChildrenOnLifecycleEvent(
+    event: Lifecycle.Event,
+    refresh: () -> Unit,
+) {
+    if (event == Lifecycle.Event.ON_RESUME) refresh()
+}
+
 private enum class Hero(
     val id: String,
     val displayName: String,
@@ -1758,7 +1765,9 @@ private fun ParentChildrenConnectedTab(
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, linkViewModel) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) linkViewModel.refreshSelectedProgress()
+            refreshParentChildrenOnLifecycleEvent(event) {
+                linkViewModel.refresh()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
