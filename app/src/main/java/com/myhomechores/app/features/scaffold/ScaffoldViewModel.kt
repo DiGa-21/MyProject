@@ -24,7 +24,14 @@ data class ScaffoldUiState(
     val childCompletedIds: Set<String> = emptySet(),
     val childName: String = "Алекс",
     val parentName: String = "Родитель",
+    val childId: String = LOCAL_CHILD_ID,
+    val activityRewardStars: Int = 0,
+    val activityRewardStatus: ActivityRewardStatus = ActivityRewardStatus.NotRequested,
 )
+
+enum class ActivityRewardStatus { NotRequested, Granting, Granted, AlreadyClaimed }
+
+private const val LOCAL_CHILD_ID = "local-child"
 
 class ScaffoldViewModel(private val repository: AppRepository) : ViewModel() {
     private val mutableState = MutableStateFlow(ScaffoldUiState())
@@ -33,9 +40,15 @@ class ScaffoldViewModel(private val repository: AppRepository) : ViewModel() {
     init {
         viewModelScope.launch {
             repository.observeChild().collectLatest { profile ->
+                val childId = profile?.id ?: LOCAL_CHILD_ID
                 if (profile != null) {
-                    mutableState.update { it.copy(childName = profile.displayName) }
+                    mutableState.update { it.copy(childName = profile.displayName, childId = childId) }
                     refreshCompletions(profile.id)
+                } else {
+                    mutableState.update { it.copy(childId = childId) }
+                }
+                repository.observeActivityRewardStars(childId).collectLatest { rewardStars ->
+                    mutableState.update { it.copy(activityRewardStars = rewardStars) }
                 }
             }
         }
@@ -75,6 +88,36 @@ class ScaffoldViewModel(private val repository: AppRepository) : ViewModel() {
 
     fun selectHero(hero: HeroId) {
         viewModelScope.launch { repository.observeChild().first()?.id?.let { repository.selectHero(it, hero) } }
+    }
+
+    fun beginActivity() {
+        mutableState.update { it.copy(activityRewardStatus = ActivityRewardStatus.NotRequested) }
+    }
+
+    fun completeActivity(
+        activityId: String,
+        date: LocalDate = LocalDate.now(),
+        stars: Int = 5,
+    ) {
+        if (mutableState.value.activityRewardStatus == ActivityRewardStatus.Granting) return
+        mutableState.update { it.copy(activityRewardStatus = ActivityRewardStatus.Granting) }
+        viewModelScope.launch {
+            val granted = repository.grantDailyActivityReward(
+                childId = mutableState.value.childId,
+                activityId = activityId,
+                date = date,
+                stars = stars,
+            )
+            mutableState.update {
+                it.copy(
+                    activityRewardStatus = if (granted) {
+                        ActivityRewardStatus.Granted
+                    } else {
+                        ActivityRewardStatus.AlreadyClaimed
+                    },
+                )
+            }
+        }
     }
 
     private suspend fun refreshCompletions(childId: String) {

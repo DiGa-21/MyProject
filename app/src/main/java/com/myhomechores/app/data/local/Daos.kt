@@ -56,8 +56,11 @@ interface CompletionDao {
 
 @Dao
 interface RewardDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(reward: RewardEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfMissing(reward: RewardEntity): Long
+
+    @Query("SELECT COALESCE(SUM(stars), 0) FROM rewards WHERE childId = :childId")
+    fun observeStarTotal(childId: String): Flow<Int>
 }
 
 @Dao

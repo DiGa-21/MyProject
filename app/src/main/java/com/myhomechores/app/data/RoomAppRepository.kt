@@ -5,6 +5,7 @@ import com.myhomechores.app.data.local.AppDatabase
 import com.myhomechores.app.data.local.ChildEntity
 import com.myhomechores.app.data.local.CompletionEntity
 import com.myhomechores.app.data.local.OutboxEntity
+import com.myhomechores.app.data.local.RewardEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.first
@@ -105,6 +106,30 @@ class RoomAppRepository(
 
     override suspend fun selectHero(childId: String, hero: HeroId) = updateChild(childId) {
         it.copy(hero = hero, heroSelected = true)
+    }
+
+    override fun observeActivityRewardStars(childId: String): Flow<Int> =
+        database.rewardDao().observeStarTotal(childId)
+
+    override suspend fun grantDailyActivityReward(
+        childId: String,
+        activityId: String,
+        date: LocalDate,
+        stars: Int,
+    ): Boolean {
+        require(stars > 0) { "Reward must be positive" }
+        val rewardId = "activity:$childId:$activityId:$date"
+        val inserted = database.rewardDao().insertIfMissing(
+            RewardEntity(
+                id = rewardId,
+                childId = childId,
+                completionId = rewardId,
+                stars = stars,
+                fragments = 0,
+                updatedAt = System.currentTimeMillis(),
+            ),
+        )
+        return inserted != -1L
     }
 
     private suspend fun updateChild(childId: String, transform: (ChildEntity) -> ChildEntity) {

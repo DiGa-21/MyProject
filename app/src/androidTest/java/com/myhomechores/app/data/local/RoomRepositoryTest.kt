@@ -14,6 +14,8 @@ import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -78,5 +80,18 @@ class RoomRepositoryTest {
 
         repository.replaceLinkedChild(ChildProfile("child-2", "Маша", null, HeroId.GIRL, true))
         assertEquals(0, database.outboxDao().pending().count { it.entityType == "completion" })
+    }
+
+    @Test
+    fun activityRewardIsGrantedOncePerCalendarDay() = runBlocking {
+        val firstDay = LocalDate.of(2026, 8, 13)
+        val nextDay = firstDay.plusDays(1)
+
+        assertTrue(repository.grantDailyActivityReward("child-1", "english-nature", firstDay, 5))
+        assertFalse(repository.grantDailyActivityReward("child-1", "english-nature", firstDay, 5))
+        assertEquals(5, repository.observeActivityRewardStars("child-1").first())
+
+        assertTrue(repository.grantDailyActivityReward("child-1", "english-nature", nextDay, 5))
+        assertEquals(10, repository.observeActivityRewardStars("child-1").first())
     }
 }

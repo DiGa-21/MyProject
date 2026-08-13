@@ -1,6 +1,7 @@
 package com.myhomechores.app.data
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import java.time.LocalDate
 
 enum class Actor { CHILD, PARENT }
@@ -58,4 +59,13 @@ interface AppRepository {
     suspend fun updateParentLabel(childId: String, value: String?)
 
     suspend fun selectHero(childId: String, hero: HeroId)
+
+    fun observeActivityRewardStars(childId: String): Flow<Int> = flowOf(0)
+
+    suspend fun grantDailyActivityReward(
+        childId: String,
+        activityId: String,
+        date: LocalDate,
+        stars: Int,
+    ): Boolean = false
 }

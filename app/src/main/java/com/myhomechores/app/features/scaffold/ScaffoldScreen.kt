@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -89,6 +90,8 @@ import com.myhomechores.app.features.family.FamilyGateway
 import com.myhomechores.app.features.family.InviteCodeRoute
 import com.myhomechores.app.features.family.ParentChildLinkCard
 import com.myhomechores.app.features.family.ParentChildLinkViewModel
+import com.myhomechores.app.features.activities.EnglishNatureLessonScreen
+import com.myhomechores.app.features.activities.TryActivitiesContent
 import com.myhomechores.app.ui.theme.MyHomeChoresTheme
 import kotlinx.coroutines.delay
 import kotlin.math.PI
@@ -105,6 +108,9 @@ internal fun refreshParentChildrenOnLifecycleEvent(
 ) {
     if (event == Lifecycle.Event.ON_RESUME) refresh()
 }
+
+internal fun shouldShowChildBottomBar(isActivityLessonOpen: Boolean): Boolean =
+    !isActivityLessonOpen
 
 private enum class Hero(
     val id: String,
@@ -181,6 +187,10 @@ fun ScaffoldScreen(
                     onCompletedIdsChange = scaffoldViewModel::updateChildCompletedIds,
                     onChildNameChange = { childName = it; scaffoldViewModel.updateChildName(it) },
                     onBack = { scaffoldViewModel.selectRole(null) },
+                    activityRewardStars = state.activityRewardStars,
+                    activityRewardStatus = state.activityRewardStatus,
+                    onActivityStarted = scaffoldViewModel::beginActivity,
+                    onActivityCompleted = { scaffoldViewModel.completeActivity("english-nature") },
                 )
             } else {
                 ConnectedChildRoute(
@@ -191,6 +201,10 @@ fun ScaffoldScreen(
                     onCompletedIdsChange = scaffoldViewModel::updateChildCompletedIds,
                     onChildNameChange = { childName = it; scaffoldViewModel.updateChildName(it) },
                     onBack = { scaffoldViewModel.selectRole(null) },
+                    activityRewardStars = state.activityRewardStars,
+                    activityRewardStatus = state.activityRewardStatus,
+                    onActivityStarted = scaffoldViewModel::beginActivity,
+                    onActivityCompleted = { scaffoldViewModel.completeActivity("english-nature") },
                 )
             }
         }
@@ -233,6 +247,10 @@ private fun ConnectedChildRoute(
     onCompletedIdsChange: (Set<String>) -> Unit,
     onChildNameChange: (String) -> Unit,
     onBack: () -> Unit,
+    activityRewardStars: Int,
+    activityRewardStatus: ActivityRewardStatus,
+    onActivityStarted: () -> Unit,
+    onActivityCompleted: () -> Unit,
 ) {
     val connectionViewModel: ChildConnectionViewModel = viewModel(
         factory = ChildConnectionViewModel.Factory(gateway, repository),
@@ -278,6 +296,10 @@ private fun ConnectedChildRoute(
                 onBack = onBack,
                 connectedName = profile.displayName,
                 connectedHeroId = if (profile.hero == com.myhomechores.app.data.HeroId.GIRL) Hero.GIRL.id else Hero.BOY.id,
+                activityRewardStars = activityRewardStars,
+                activityRewardStatus = activityRewardStatus,
+                onActivityStarted = onActivityStarted,
+                onActivityCompleted = onActivityCompleted,
             )
         }
     }
@@ -347,6 +369,10 @@ private fun ChildModeScreen(
     onBack: () -> Unit,
     connectedName: String? = null,
     connectedHeroId: String? = null,
+    activityRewardStars: Int = 0,
+    activityRewardStatus: ActivityRewardStatus = ActivityRewardStatus.NotRequested,
+    onActivityStarted: () -> Unit = {},
+    onActivityCompleted: () -> Unit = {},
 ) {
     var selectedHeroId by rememberSaveable { mutableStateOf<String?>(connectedHeroId) }
     var childName by rememberSaveable { mutableStateOf(connectedName.orEmpty()) }
@@ -367,27 +393,36 @@ private fun ChildModeScreen(
     var selectedOptionalIds by rememberSaveable { mutableStateOf(setOf<String>()) }
     var stars by rememberSaveable { mutableStateOf(24) }
     var category by rememberSaveable { mutableStateOf("Все") }
+    var isActivityLessonOpen by rememberSaveable { mutableStateOf(false) }
     val requiredChores = chores.filter { it.required }
     val requiredDone = requiredChores.count { completedIds.contains(it.id) }
     val gameProgress = if (requiredChores.isEmpty()) 0f else requiredDone.toFloat() / requiredChores.size
+    val displayedStars = stars + activityRewardStars
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = { ChildBottomBar(tab = tab, gameProgress = gameProgress, onTabSelected = { tab = it }) },
+        bottomBar = {
+            if (shouldShowChildBottomBar(isActivityLessonOpen)) {
+                ChildBottomBar(tab = tab, gameProgress = gameProgress, onTabSelected = { tab = it })
+            }
+        },
     ) { padding ->
         when (tab) {
-            ChildTab.ROOM -> RoomTab(padding, stars, selectedHero, childName, onBack)
+            ChildTab.ROOM -> RoomTab(padding, displayedStars, selectedHero, childName, onBack)
             ChildTab.CHORES -> ChoresTab(
                 padding = padding,
-                stars = stars,
+                stars = displayedStars,
                 completedIds = completedIds,
                 selectedOptionalIds = selectedOptionalIds,
                 category = category,
                 hero = selectedHero,
                 childName = childName,
                 onBack = onBack,
-                onCategoryChange = { category = it },
+                onCategoryChange = {
+                    category = it
+                    if (it != "Попробуй") isActivityLessonOpen = false
+                },
                 onOptionalSelect = { chore ->
                     selectedOptionalIds = if (selectedOptionalIds.contains(chore.id)) {
                         selectedOptionalIds - chore.id
@@ -395,6 +430,10 @@ private fun ChildModeScreen(
                         selectedOptionalIds + chore.id
                     }
                 },
+                activityRewardStatus = activityRewardStatus,
+                onActivityStarted = onActivityStarted,
+                onActivityCompleted = onActivityCompleted,
+                onActivityLessonVisibilityChange = { isActivityLessonOpen = it },
             ) { chore ->
                 if (completedIds.contains(chore.id)) {
                     onCompletedIdsChange(completedIds - chore.id)
@@ -404,11 +443,11 @@ private fun ChildModeScreen(
                     stars += chore.reward
                 }
             }
-            ChildTab.GAME -> GameTab(padding = padding, stars = stars, progress = gameProgress, hero = selectedHero, childName = childName)
-            ChildTab.SHOP -> ShopTab(padding, stars, selectedHero, childName) { price -> if (stars >= price) stars -= price }
+            ChildTab.GAME -> GameTab(padding = padding, stars = displayedStars, progress = gameProgress, hero = selectedHero, childName = childName)
+            ChildTab.SHOP -> ShopTab(padding, displayedStars, selectedHero, childName) { price -> if (stars >= price) stars -= price }
             ChildTab.PROFILE -> ProfileTab(
                 padding = padding,
-                stars = stars,
+                stars = displayedStars,
                 completed = completedIds.size,
                 hero = selectedHero,
                 childName = childName,
@@ -561,16 +600,27 @@ private fun ChoresTab(
     onBack: () -> Unit,
     onCategoryChange: (String) -> Unit,
     onOptionalSelect: (Chore) -> Unit,
+    activityRewardStatus: ActivityRewardStatus,
+    onActivityStarted: () -> Unit,
+    onActivityCompleted: () -> Unit,
+    onActivityLessonVisibilityChange: (Boolean) -> Unit,
     onToggle: (Chore) -> Unit,
 ) {
-    val categories = listOf("Все", "Дом", "Учёба", "Здоровье")
+    val categories = listOf("Все", "Дом", "Учёба", "Здоровье", "Попробуй")
+    var activityRoute by rememberSaveable { mutableStateOf("catalog") }
     val requiredChores = chores.filter { it.required }
     val optionalChores = chores.filter { !it.required }
     val visibleRequired = requiredChores.filter { category == "Все" || it.category == category }
     val visibleOptional = optionalChores.filter { category == "Все" || it.category == category }
     val requiredDone = requiredChores.count { completedIds.contains(it.id) }
     val allRequiredDone = requiredDone == requiredChores.size
-    LazyColumn(contentPadding = PaddingValues(top = padding.calculateTopPadding(), bottom = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(
+        contentPadding = PaddingValues(
+            top = padding.calculateTopPadding(),
+            bottom = padding.calculateBottomPadding() + 18.dp,
+        ),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
         item { ChildTopBar("Мои дела", stars, onBack, hero, childName) }
         item {
             Column(Modifier.padding(horizontal = 20.dp)) {
@@ -589,6 +639,28 @@ private fun ChoresTab(
                 }
             }
         }
+        if (category == "Попробуй") {
+            item {
+                if (activityRoute == "english") {
+                    EnglishNatureLessonScreen(
+                        rewardStatus = activityRewardStatus.name,
+                        onCompleted = onActivityCompleted,
+                        onBack = {
+                            activityRoute = "catalog"
+                            onActivityLessonVisibilityChange(false)
+                        },
+                    )
+                } else {
+                    TryActivitiesContent(
+                        onOpenEnglish = {
+                            onActivityStarted()
+                            activityRoute = "english"
+                            onActivityLessonVisibilityChange(true)
+                        },
+                    )
+                }
+            }
+        } else {
         item { SectionHeader("Обязательные дела") }
         items(visibleRequired, key = { it.id }) { chore -> ChoreCard(chore, completedIds.contains(chore.id), onToggle) }
         item {
@@ -618,6 +690,7 @@ private fun ChoresTab(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -1150,7 +1223,13 @@ private fun Badge(title: String, marker: String) { Column(horizontalAlignment = 
 @Composable
 private fun ChildBottomBar(tab: ChildTab, gameProgress: Float, onTabSelected: (ChildTab) -> Unit) {
     Surface(shadowElevation = 6.dp, color = MaterialTheme.colorScheme.surface) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
             NavItem("Комната", "К", tab == ChildTab.ROOM, Modifier.weight(1f)) { onTabSelected(ChildTab.ROOM) }
             NavItem("Дела", "Д", tab == ChildTab.CHORES, Modifier.weight(1f)) { onTabSelected(ChildTab.CHORES) }
             GameProgressNavItem(
@@ -1861,7 +1940,13 @@ private fun AddParentTaskDialog(onDismiss: () -> Unit, onAdd: (String) -> Unit) 
 @Composable
 private fun ParentBottomBar(tab: ParentTab, gameProgress: Float, onTabSelected: (ParentTab) -> Unit) {
     Surface(shadowElevation = 6.dp, color = MaterialTheme.colorScheme.surface) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
             NavItem("Обзор", "О", tab == ParentTab.OVERVIEW, Modifier.weight(1f)) { onTabSelected(ParentTab.OVERVIEW) }
             NavItem("Мои дела", "Д", tab == ParentTab.CHORES, Modifier.weight(1f)) { onTabSelected(ParentTab.CHORES) }
             GameProgressNavItem(
