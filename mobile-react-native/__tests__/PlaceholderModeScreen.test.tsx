@@ -14,7 +14,7 @@ describe('PlaceholderModeScreen', () => {
 
     screen.getByText('Режим ребёнка');
     screen.getByText('Подключение по коду появится на следующем этапе');
-    fireEvent.press(screen.getByRole('button', { name: 'Назад' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Назад' }));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 });
