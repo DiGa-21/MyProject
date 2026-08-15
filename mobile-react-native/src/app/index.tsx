@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 
-import { HomeScreen } from '../src/screens/HomeScreen';
+import { HomeScreen } from '../screens/HomeScreen';
 
 export default function HomeRoute() {
   return (

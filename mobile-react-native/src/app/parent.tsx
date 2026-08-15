@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 
-import { PlaceholderModeScreen } from '../src/screens/PlaceholderModeScreen';
+import { PlaceholderModeScreen } from '../screens/PlaceholderModeScreen';
 
 export default function ParentRoute() {
   return (

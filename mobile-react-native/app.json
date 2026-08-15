@@ -12,7 +12,6 @@
     },
     "android": {
       "package": "com.myway.reactnative",
-      "edgeToEdgeEnabled": true,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
