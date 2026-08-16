@@ -42,3 +42,31 @@ Android Gradle Plugin умеет собирать проект из текуще
 Если это происходит, используйте текущий ASCII-путь проекта: `C:\Android\MyWay\New project`.
 
 Предупреждение о различии версий SDK XML не блокирует сборку. Позже его можно убрать обновлением Android SDK Command-line Tools через SDK Manager.
+
+## React Native-клиент
+
+React Native-проект находится в `mobile-react-native`. Создайте в этой папке локальный файл `.env` по образцу `.env.example`:
+
+```ini
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+```
+
+Файл `.env` не попадает в GitHub. Используйте только publishable key; `service_role` и secret key запрещены в мобильном приложении.
+
+Для текущей семейной версии один раз настройте Supabase Dashboard:
+
+1. **Authentication → Providers → Email** — отключите обязательное подтверждение email, чтобы после регистрации сразу создавалась сессия.
+2. **Authentication → URL Configuration → Redirect URLs** — добавьте `myway://reset-password`.
+3. В настройках пароля задайте минимальную длину `6`.
+
+Проверка React Native-проекта:
+
+```powershell
+Set-Location mobile-react-native
+npm.cmd install
+npm.cmd run test:ci
+npm.cmd run typecheck
+npm.cmd run lint
+npx.cmd expo start
+```
