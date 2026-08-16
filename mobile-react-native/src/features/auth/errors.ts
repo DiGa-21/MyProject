@@ -19,6 +19,13 @@ export function mapAuthError(error: unknown): string {
   }
 
   if (
+    source.includes('отключи подтверждение почты') &&
+    source.includes('supabase')
+  ) {
+    return 'Отключи подтверждение почты в настройках Supabase для текущей версии приложения';
+  }
+
+  if (
     source.includes('unable to resolve host') ||
     source.includes('network') ||
     source.includes('timeout') ||

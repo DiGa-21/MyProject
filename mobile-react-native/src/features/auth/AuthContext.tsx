@@ -142,7 +142,10 @@ export function AuthProvider({
       return dependency.cleanup;
     }
 
+    let authEventVersion = 0;
+    const restorationStartedAtVersion = authEventVersion;
     const unsubscribe = activeGateway.subscribe((snapshot) => {
+      authEventVersion += 1;
       if (mounted) {
         dispatch({ type: 'snapshot', ...snapshot });
       }
@@ -172,7 +175,11 @@ export function AuthProvider({
         const restoredUser = await activeGateway.restoreSession();
         const initialUrl = await Linking.getInitialURL();
         const recovery = initialUrl ? await consumeLink(initialUrl) : false;
-        if (mounted && !recovery) {
+        if (
+          mounted &&
+          !recovery &&
+          authEventVersion === restorationStartedAtVersion
+        ) {
           dispatch({
             type: 'snapshot',
             status: restoredUser ? 'authenticated' : 'unauthenticated',

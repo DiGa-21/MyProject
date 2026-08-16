@@ -7,6 +7,10 @@ describe('mapAuthError', () => {
     ['Network request failed', 'Нет связи с интернетом. Попробуй ещё раз'],
     ['request timeout', 'Нет связи с интернетом. Попробуй ещё раз'],
     ['rate limit exceeded', 'Слишком много попыток. Попробуй немного позже'],
+    [
+      'Отключи подтверждение почты в настройках Supabase для текущей версии приложения',
+      'Отключи подтверждение почты в настройках Supabase для текущей версии приложения',
+    ],
   ])('maps %s', (source, expected) => {
     expect(mapAuthError(new Error(source))).toBe(expected);
   });

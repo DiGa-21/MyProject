@@ -92,6 +92,12 @@ export function ParentAuthScreen({ onBack }: ParentAuthScreenProps) {
   const [passwordRepeat, setPasswordRepeat] = useState('');
   const [errors, setErrors] = useState<AuthFieldErrors>({});
   const [resetSent, setResetSent] = useState(false);
+  const primaryActionLabel =
+    mode === 'signIn'
+      ? 'Войти'
+      : mode === 'registration'
+        ? 'Создать аккаунт'
+        : 'Отправить письмо';
 
   const changeMode = (next: AuthMode) => {
     auth.clearError();
@@ -261,6 +267,7 @@ export function ParentAuthScreen({ onBack }: ParentAuthScreenProps) {
               ) : null}
 
               <Pressable
+                accessibilityLabel={primaryActionLabel}
                 accessibilityRole="button"
                 accessibilityState={{ disabled: auth.submitting }}
                 disabled={auth.submitting}
@@ -273,13 +280,7 @@ export function ParentAuthScreen({ onBack }: ParentAuthScreenProps) {
                 {auth.submitting ? (
                   <ActivityIndicator color={colors.white} />
                 ) : (
-                  <Text style={styles.primaryButtonText}>
-                    {mode === 'signIn'
-                      ? 'Войти'
-                      : mode === 'registration'
-                        ? 'Создать аккаунт'
-                        : 'Отправить письмо'}
-                  </Text>
+                  <Text style={styles.primaryButtonText}>{primaryActionLabel}</Text>
                 )}
               </Pressable>
 

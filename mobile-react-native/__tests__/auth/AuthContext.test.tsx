@@ -124,6 +124,30 @@ describe('AuthProvider', () => {
     expect(screen.getByText('Диана')).toBeTruthy();
   });
 
+  it('does not overwrite a newer auth event with stale restoration', async () => {
+    const pending = deferred<ParentUser | null>();
+    const fake = makeGateway();
+    (fake.gateway.restoreSession as jest.Mock).mockReturnValueOnce(pending.promise);
+    const screen = await render(
+      <AuthProvider gateway={fake.gateway}>
+        <AuthProbe />
+      </AuthProvider>,
+    );
+
+    await act(async () => {
+      fake.emit({ status: 'authenticated', user: parent });
+    });
+    expect(screen.getByText('authenticated')).toBeTruthy();
+
+    pending.resolve(null);
+    await act(async () => {
+      await pending.promise;
+    });
+
+    expect(screen.getByText('authenticated')).toBeTruthy();
+    expect(screen.getByText('Диана')).toBeTruthy();
+  });
+
   it('supports sign-in, sign-up, and logout actions', async () => {
     const fake = makeGateway();
     const screen = await render(

@@ -98,6 +98,23 @@ describe('ParentAuthScreen', () => {
     );
   });
 
+  it('keeps the submit button named while sign-in is loading', async () => {
+    const gateway = makeGateway();
+    const pending = new Promise<ParentUser>(() => undefined);
+    (gateway.signIn as jest.Mock).mockReturnValueOnce(pending);
+    const { screen } = await renderScreen(gateway);
+
+    await fireEvent.changeText(
+      screen.getByLabelText('Электронная почта'),
+      'diana@example.com',
+    );
+    await fireEvent.changeText(screen.getByLabelText('Пароль'), '123456');
+    await fireEvent.press(screen.getByRole('button', { name: 'Войти' }));
+
+    expect(screen.getByRole('button', { name: 'Войти' }).props.accessibilityState)
+      .toEqual({ disabled: true });
+  });
+
   it('sends a neutral password reset response', async () => {
     const { screen, gateway } = await renderScreen();
 
