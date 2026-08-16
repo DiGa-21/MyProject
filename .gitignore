@@ -32,3 +32,10 @@ externalNativeBuild/
 # Operating systems
 .DS_Store
 Thumbs.db
+
+# React Native / Expo
+**/node_modules/
+**/.expo/
+**/.expo-shared/
+mobile-react-native/android/
+mobile-react-native/ios/
