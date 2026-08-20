@@ -1,56 +1,54 @@
-# Welcome to your Expo app 👋
+# Мой путь — React Native
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Кроссплатформенный клиент приложения «Мой путь» на Expo SDK 57 и React Native. Резервная Kotlin-версия находится в соседнем модуле `app` и продолжает собираться отдельно.
 
-## Get started
+## Локальная настройка
 
-1. Install dependencies
+1. Установите зависимости:
 
-   ```bash
-   npm install
+   ```powershell
+   npm.cmd install
    ```
 
-2. Start the app
+2. Скопируйте `.env.example` в `.env` и заполните только две публичные клиентские переменные:
 
-   ```bash
-   npx expo start
+   ```ini
+   EXPO_PUBLIC_SUPABASE_URL=
+   EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
    ```
 
-In the output, you'll find options to open the app in a
+   `.env` игнорируется Git. Publishable key предназначен для клиентского приложения; доступ к данным всё равно ограничивают Supabase Auth и RLS. Никогда не помещайте в приложение `service_role` или secret key.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+3. Запустите приложение:
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+   ```powershell
+   npx.cmd expo start
+   ```
 
-## Get a fresh project
+## Авторизация родителя
 
-When you're ready, run:
+- `/parent` проверяет сохранённую сессию и направляет на вход или в кабинет.
+- Регистрация передаёт имя в Supabase metadata как `display_name`.
+- Минимальная длина пароля — 6 символов.
+- Сессия хранится в AsyncStorage и восстанавливается после перезапуска.
+- Восстановление пароля использует deep link `myway://reset-password`.
+- Ответ после запроса recovery-письма намеренно нейтральный и не сообщает, существует ли аккаунт.
 
-```bash
-npm run reset-project
+## Проверки
+
+```powershell
+npm.cmd run test:ci
+npm.cmd run typecheck
+npm.cmd run lint
+npx.cmd expo export --platform android --output-dir dist-auth-check
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Нативная debug-сборка Android:
 
-### Other setup steps
+```powershell
+npx.cmd expo prebuild --platform android
+Set-Location android
+.\gradlew.bat app:assembleDebug
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+APK создаётся в `android/app/build/outputs/apk/debug/app-debug.apk`.
